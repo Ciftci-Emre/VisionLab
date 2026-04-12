@@ -23,8 +23,7 @@ TOOL_PARAMS: dict[str, list[dict]] = {
 
     "Görüntü Döndürme": [
         {"label": "Açı (°)",    "key": "angle",  "type": "slider", "min": -180, "max": 180, "default": 90},
-        {"label": "Ölçek (%)",  "key": "scale",  "type": "slider", "min": 10,   "max": 200, "default": 100},
-        {"label": "Kırpma yapma", "key": "expand", "type": "check",             "default": True},
+        {"label": "Taşanı göster", "key": "expand", "type": "check",             "default": True},
     ],
 
     "Görüntü Kırpma": [
@@ -33,9 +32,8 @@ TOOL_PARAMS: dict[str, list[dict]] = {
     ],
 
     "Yaklaştırma / Uzaklaştırma": [
-        {"label": "Yüzde (%)",      "key": "percent",       "type": "slider", "min": 10, "max": 300, "default": 150},
-        {"label": "İnterpolasyon",  "key": "interpolation", "type": "combo",
-         "options": ["Linear","Cubic","Nearest","Lanczos"],                   "default": "Linear"},
+        {"label": "Yatay ölçek (%)", "key": "scale_x", "type": "slider", "min": 10, "max": 300, "default": 150},
+        {"label": "Dikey ölçek (%)", "key": "scale_y", "type": "slider", "min": 10, "max": 300, "default": 150},
     ],
 
     "Parlaklık Artırma": [
@@ -44,8 +42,9 @@ TOOL_PARAMS: dict[str, list[dict]] = {
     ],
 
     "Histogram & Germe": [
-        {"label": "Yöntem", "key": "method", "type": "combo",
-         "options": ["Histogram Çıkarma","Histogram Germe","Histogram Genişletme"],     "default": "Histogram Çıkarma"},
+        {"label": "Alt kesim (%)",  "key": "p_low",  "type": "slider", "min": 0, "max": 10, "default": 1},
+        {"label": "Üst kesim (%)", "key": "p_high", "type": "slider", "min": 90, "max": 100, "default": 99},
+        {"label": "Histogram göster", "key": "show_histogram", "type": "check", "default": True},
     ],
 
     "Konvolüsyon İşlemi (Gauss)": [

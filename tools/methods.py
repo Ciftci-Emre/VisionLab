@@ -9,12 +9,12 @@ def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     """Renk görüntüsünü gri (grayscale) görüntüye dönüştür.
     
     Formül: Gray = 0.229*R + 0.587*G + 0.114*B
-    (OpenCV BGR sırasında: 0.114*B + 0.587*G + 0.229*R)
     """
     # BGR kanallarını ayır
-    b = img[:, :, 0].astype(np.float32)
-    g = img[:, :, 1].astype(np.float32)
-    r = img[:, :, 2].astype(np.float32)
+    if len(img.shape)==3:
+        r = img[:, :, 2].astype(np.float32)
+        g = img[:, :, 1].astype(np.float32)
+        b = img[:, :, 0].astype(np.float32)
     
     # Manuel formülü uygula - tek kanal olarak döndür
     gray = (0.114 * b + 0.587 * g + 0.229 * r).astype(np.uint8)
@@ -25,9 +25,9 @@ def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
 def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     """İki resmin pixellerini toplayarak ekleme işlemi yap.
     
-    - 3 kanallı + 3 kanallı: Kanal başına toplama (R+R, G+G, B+B)
-    - 3 kanallı + 1 kanallı: Her kanala 1 kanallı değer ekleme (R+değer, G+değer, B+değer)
-    - 1 kanallı + 1 kanallı: Normal toplama
+    3 kanallı + 3 kanallı: Kanal başına toplama (R+R, G+G, B+B)
+    3 kanallı + 1 kanallı: Her kanala 1 kanallı değer ekleme (R+değer, G+değer, B+değer)
+    1 kanallı + 1 kanallı: Normal toplama
     """
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
@@ -36,27 +36,29 @@ def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     h = min(h1, h2)
     w = min(w1, w2)
     
-    img1_crop = img1[:h, :w]
-    img2_crop = img2[:h, :w]
+    img1_kirpilmis = img1[:h, :w]
+    img2_kirpilmis = img2[:h, :w]
     
-    # Kanal sayısını kontrol et
-    is_img1_color = len(img1_crop.shape) == 3
-    is_img2_color = len(img2_crop.shape) == 3
-    
-    img1_uint16 = img1_crop.astype(np.uint16)
-    img2_uint16 = img2_crop.astype(np.uint16)
+    img1_uint16 = img1_kirpilmis.astype(np.uint16)
+    img2_uint16 = img2_kirpilmis.astype(np.uint16)
     
     # 3 kanallı + 3 kanallı: Kanal başına toplama
-    if is_img1_color and is_img2_color:
+    if len(img1_kirpilmis.shape)==3 and len(img2_kirpilmis.shape)==3:
         result = np.minimum(img1_uint16 + img2_uint16, 255).astype(np.uint8)
     # 3 kanallı + 1 kanallı: Her kanala 1 kanallı değer ekle
-    elif is_img1_color and not is_img2_color:
-        img2_broadcast = np.stack([img2_uint16, img2_uint16, img2_uint16], axis=2)
-        result = np.minimum(img1_uint16 + img2_broadcast, 255).astype(np.uint8)
+    elif len(img1_kirpilmis.shape)==3 and len(img2_kirpilmis.shape)!=3:
+        for i in range(h):
+            for j in range(w):
+                for k in range(3):
+                    img1_uint16[i, j, k] = min(img1_uint16[i, j, k] + img2_uint16[i, j], 255)
+        result=img1_uint16.astype(np.uint8)
     # 1 kanallı + 3 kanallı: Her kanala 1 kanallı değer ekle
-    elif not is_img1_color and is_img2_color:
-        img1_broadcast = np.stack([img1_uint16, img1_uint16, img1_uint16], axis=2)
-        result = np.minimum(img1_broadcast + img2_uint16, 255).astype(np.uint8)
+    elif len(img1_kirpilmis.shape)!=3 and len(img2_kirpilmis.shape)==3:
+        for i in range(h):
+            for j in range(w):
+                for k in range(3):
+                    img2_uint16[i, j, k] = min(img2_uint16[i, j, k] + img1_uint16[i, j], 255)
+        result=img2_uint16.astype(np.uint8)
     # 1 kanallı + 1 kanallı: Normal toplama
     else:
         result = np.minimum(img1_uint16 + img2_uint16, 255).astype(np.uint8)
@@ -67,9 +69,9 @@ def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
 def resim_carpma(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     """İki resmin pixellerini çarparak çarpma işlemi yap.
     
-    - 3 kanallı + 3 kanallı: Kanal başına çarpma (R*R, G*G, B*B)
-    - 3 kanallı + 1 kanallı: Her kanala 1 kanallı değer çarpma (R*değer, G*değer, B*değer)
-    - 1 kanallı + 1 kanallı: Normal çarpma
+    3 kanallı + 3 kanallı: Kanal başına çarpma (R*R, G*G, B*B)
+    3 kanallı + 1 kanallı: Her kanala 1 kanallı değer çarpma (R*değer, G*değer, B*değer)
+    1 kanallı + 1 kanallı: Normal çarpma
     """
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
@@ -78,27 +80,31 @@ def resim_carpma(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     h = min(h1, h2)
     w = min(w1, w2)
     
-    img1_crop = img1[:h, :w]
-    img2_crop = img2[:h, :w]
+    img1_kirpilmis = img1[:h, :w]
+    img2_kirpilmis = img2[:h, :w]
     
-    # Kanal sayısını kontrol et
-    is_img1_color = len(img1_crop.shape) == 3
-    is_img2_color = len(img2_crop.shape) == 3
-    
-    img1_float = img1_crop.astype(np.float32) / 255.0
-    img2_float = img2_crop.astype(np.float32) / 255.0
+    img1_float = img1_kirpilmis.astype(np.float32) / 255.0
+    img2_float = img2_kirpilmis.astype(np.float32) / 255.0
     
     # 3 kanallı + 3 kanallı: Kanal başına çarpma
-    if is_img1_color and is_img2_color:
+    if len(img1_kirpilmis.shape)==3 and len(img2_kirpilmis.shape)==3:
         result = (img1_float * img2_float * 255).astype(np.uint8)
     # 3 kanallı + 1 kanallı: Her kanala 1 kanallı değer çarp
-    elif is_img1_color and not is_img2_color:
-        img2_broadcast = np.stack([img2_float, img2_float, img2_float], axis=2)
-        result = (img1_float * img2_broadcast * 255).astype(np.uint8)
+    elif len(img1_kirpilmis.shape)==3 and len(img2_kirpilmis.shape)!=3:
+        for i in range(h):
+            for j in range(w):
+                for k in range(3):
+                    img1_float[i,j,k]*=img2_float[i,j]
+        img1_float=img1_float*255
+        result=img1_float.astype(np.uint8)
     # 1 kanallı + 3 kanallı: Her kanala 1 kanallı değer çarp
-    elif not is_img1_color and is_img2_color:
-        img1_broadcast = np.stack([img1_float, img1_float, img1_float], axis=2)
-        result = (img1_broadcast * img2_float * 255).astype(np.uint8)
+    elif len(img1_kirpilmis.shape)!=3 and len(img2_kirpilmis.shape)==3:
+        for i in range(h):
+            for j in range(w):
+                for k in range(3):
+                    img2_float[i,j,k]*=img1_float[i,j]
+        img2_float=img2_float*255
+        result=img2_float.astype(np.uint8)
     # 1 kanallı + 1 kanallı: Normal çarpma
     else:
         result = (img1_float * img2_float * 255).astype(np.uint8)
@@ -109,71 +115,61 @@ def resim_carpma(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
 def binary_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     """Binary dönüşüm yap (Eşik veya Otsu yöntemi).
     
-    - Eşik (Threshold): Verilen eşik değerine göre bölüm
-    - Otsu: Otomatik eşik değeri hesaplayarak bölüm
+    Eşik (Threshold): Verilen eşik değerine göre bölüm
+    Otsu: Otomatik eşik değeri hesaplayarak bölüm
     """
     # 3 kanallı ise griye dönüştür
-    if len(img.shape) == 3:
-        b = img[:, :, 0].astype(np.float32)
-        g = img[:, :, 1].astype(np.float32)
-        r = img[:, :, 2].astype(np.float32)
-        gray = (0.114 * b + 0.587 * g + 0.229 * r).astype(np.uint8)
+    if(len(img.shape) == 3):
+        gray = gri_donusum(img, params)
     else:
         gray = img.astype(np.uint8)
-    
+
     method = params.get("method", "Otsu")
     
     if method == "Eşik (Threshold)":
-        # Manuel eşik yöntemi
         threshold = params.get("threshold", 127)
-        binary = np.where(gray >= threshold, 255, 0).astype(np.uint8)
+        for i in range(gray.shape[0]):
+            for j in range(gray.shape[1]):
+                if gray[i, j] >= threshold:
+                    gray[i, j] = 255
+                else:
+                    gray[i, j] = 0
     else:  # Otsu
         # Histogram hesapla
-        histogram = np.bincount(gray.flatten(), minlength=256)
-        
-        # Tüm pixel toplamı
-        total_pixels = gray.size
-        total_sum = sum([i * histogram[i] for i in range(256)])
-        
-        # Otsu yöntemi - eşik değerini bul
-        max_variance = 0
-        threshold = 0
-        
-        w0_count = 0  # Arka plan piksel sayısı
-        w0_sum = 0    # Arka plan piksel değerleri toplamı
-        
-        for t in range(255):
-            w0_count += histogram[t]
-            w0_sum += t * histogram[t]
-            
-            # Arka plan ve ön plan oranları
-            w0 = w0_count / total_pixels
-            w1 = 1 - w0
-            
+        hist = histogram(gray, params)
+        toplam_pixel=sum(hist)
+        olasilik_dagilimi=np.zeros(256)
+        max_varyans=0
+        threshold=0
+        for i in range(256):
+            olasilik_dagilimi[i]=hist[i]/toplam_pixel
+
+        for t in range(0, 256):
+            w0=sum(olasilik_dagilimi[:t])
+            w1=sum(olasilik_dagilimi[t:])
             if w0 == 0 or w1 == 0:
                 continue
-            
-            # Ortalama pixel değerleri
-            mu0 = w0_sum / w0_count if w0_count > 0 else 0
-            mu1 = (total_sum - w0_sum) / (total_pixels - w0_count) if (total_pixels - w0_count) > 0 else 0
-            
-            # Sınıflar arası varyans
-            variance = w0 * w1 * (mu0 - mu1) ** 2
-            
-            if variance > max_variance:
-                max_variance = variance
+            ortalama_0=sum([i * olasilik_dagilimi[i] for i in range(t)]) / w0
+            ortalama_1=sum([i * olasilik_dagilimi[i] for i in range(t, 256)]) / w1
+            varyans=w0 * w1 * (ortalama_0 - ortalama_1) ** 2
+            if varyans > max_varyans:
+                max_varyans = varyans
                 threshold = t
-        
+
         # Binary görüntü oluştur
-        binary = np.where(gray >= threshold, 255, 0).astype(np.uint8)
-    
-    return binary
+        for i in range(gray.shape[0]):
+            for j in range(gray.shape[1]):
+                if gray[i, j] >= threshold:
+                    gray[i, j] = 255
+                else:
+                    gray[i, j] = 0
+    return gray
 
 
 def gauss_konvolüsyon(img: np.ndarray, params: dict) -> np.ndarray:
     """Gauss çekirdeği ile konvolüsyon işlemi yap.
     
-    Gauss filtresi kullanarak görüntüyü bulandırır (blur).
+    Gauss filtresi kullanarak görüntüyü bulanıklaştırır.
     Her kanal ayrı ayrı işleme tabi tutulur.
     """
     # Kernel boyutu (tek olması gerekli)
@@ -181,65 +177,59 @@ def gauss_konvolüsyon(img: np.ndarray, params: dict) -> np.ndarray:
     if ksize % 2 == 0:
         ksize += 1
     
-    # Sigma (0'dan büyük olmalı)
     sigma = float(params.get("sigma", 1.0))
-    if sigma <= 0:
-        sigma = 1.0
-    
+
     # Gauss çekirdeğini oluştur
-    kernel = _gauss_kernel(ksize, sigma)
+    kernel = gauss_kernel(ksize, sigma)
     
     # 3 kanallı mı yoksa 1 kanallı mı kontrol et
     if len(img.shape) == 3:
         # Her kanal için ayrı konvolüsyon
         result = np.zeros_like(img, dtype=np.float32)
-        for c in range(img.shape[2]):
-            result[:, :, c] = _apply_convolution(img[:, :, c].astype(np.float32), kernel)
+        for kanal in range(img.shape[2]):
+            result[:, :, kanal] = konvolusyon(img[:, :, kanal].astype(np.float32), kernel)
         result = np.clip(result, 0, 255).astype(np.uint8)
     else:
         # Tek kanal
-        result = _apply_convolution(img.astype(np.float32), kernel)
+        result = konvolusyon(img.astype(np.float32), kernel)
         result = np.clip(result, 0, 255).astype(np.uint8)
     
     return result
 
 
-def _gauss_kernel(ksize: int, sigma: float) -> np.ndarray:
+def gauss_kernel(ksize: int, sigma: float) -> np.ndarray:
     """Gauss çekirdeği oluştur."""
-    # Çekirdek merkezi
-    center = ksize // 2
-    
-    # 1D Gauss profili
-    kernel_1d = np.zeros(ksize)
+    kernel=np.zeros((ksize, ksize))
+    center=ksize//2
     for i in range(ksize):
-        x = i - center
-        kernel_1d[i] = np.exp(-(x ** 2) / (2 * sigma ** 2))
-    
-    # Normalize et
-    kernel_1d = kernel_1d / np.sum(kernel_1d)
-    
-    # 2D Gauss çekirdeği (separable convolution)
-    kernel = np.outer(kernel_1d, kernel_1d)
-    
+        for j in range(ksize):
+            x=i-center
+            y=j-center
+            kernel[i,j]=(1/(2*np.pi*sigma**2))*np.exp(-(x**2+y**2)/(2*sigma**2))
+    kernel=kernel/kernel.sum() #normalize etmezsek resim kararıyor
     return kernel
 
 
-def _apply_convolution(img: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+def konvolusyon(img: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     """Konvolüsyon işlemini uygula (padding ile)."""
+    kernel=np.flip(kernel)
     ksize = kernel.shape[0]
-    pad = ksize // 2
-    
-    # Resimi pad et (REFLECT padding)
-    padded = np.pad(img, pad, mode='reflect')
-    
-    # Konvolüsyon
-    output = np.zeros_like(img, dtype=np.float32)
+    padding=ksize//2 #zero padding yapacağız
+
+    padding_img=np.zeros((img.shape[0]+2*padding, img.shape[1]+2*padding))
+    padding_img[padding:padding+img.shape[0], padding:padding+img.shape[1]]=img
+    output = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
+
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            region = padded[i:i + ksize, j:j + ksize]
-            output[i, j] = np.sum(region * kernel)
-    
-    return output
+            toplam=0
+            for k in range(ksize):
+                for l in range(ksize):
+                    toplam += padding_img[i+k, j+l] * kernel[k, l]
+            output[i, j] = toplam
+
+    output = np.clip(output, 0, 255)
+    return output #unutma output float32 dönüyor
 
 
 def goruntu_dongme(img: np.ndarray, params: dict) -> np.ndarray:
@@ -457,6 +447,20 @@ def _histogram_goster(
 
     plt.tight_layout()
     plt.show()
+
+def histogram(img: np.ndarray, params: dict) -> np.ndarray:
+    """Görüntünün histogramını verir"""
+    if len(img.shape) == 3:
+        gray=gri_donusum(img, params)
+    else:
+        gray=img.astype(np.uint8)
+    
+    histogram=np.zeros(256)
+    for i in range(gray.shape[0]):
+        for j in range(gray.shape[1]):
+            histogram[gray[i,j]]+=1
+
+    return histogram
 
 
 # Mevcut araçlar (diğerleri henüz devre dışı)

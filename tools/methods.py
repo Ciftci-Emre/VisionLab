@@ -3,23 +3,180 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import random # Sadece rastgele piksel seçmek için kullanıyoruz
 
 
-def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
-    """Renk görüntüsünü gri (grayscale) görüntüye dönüştür.
+def gri_donusum(img: list, params: dict) -> list:
+    # Görüntünün boyutlarını bul
+    yukseklik = len(img)
+    genislik = len(img[0])
     
-    Formül: Gray = 0.229*R + 0.587*G + 0.114*B
-    """
-    # BGR kanallarını ayır
-    if len(img.shape)==3:
-        r = img[:, :, 2].astype(np.float32)
-        g = img[:, :, 1].astype(np.float32)
-        b = img[:, :, 0].astype(np.float32)
+    # İlk başta her pikselini 0 (siyah) olarak belirliyoruz.
+    gri_resim = []
+    for y in range(yukseklik):
+        satir = []
+        for x in range(genislik):
+            # Tek kanallı olacağı için şimdilik 0 ekliyoruz
+            satir.append(0) 
+        gri_resim.append(satir)
+        
+    # Tüm pikselleri tek tek geziyoruz
+    for y in range(yukseklik):
+        for x in range(genislik):
+            
+            # O anki pikselin Mavi, Yeşil ve Kırmızı değerlerini alıyoruz.
+            mavi = img[y][x][0]
+            yesil = img[y][x][1]
+            kirmizi = img[y][x][2]
+            
+            gri_deger = (0.114 * mavi) + (0.587 * yesil) + (0.229 * kirmizi)
+            
+            gri_deger = int(gri_deger)
+            
+            # Bulduğumuz gri değeri, yeni resmimizdeki aynı piksele yazıyoruz.
+            gri_resim[y][x] = gri_deger
+            
+    sonuc_resim = []
+    for y in range(yukseklik):
+        yeni_satir = []
+        for x in range(genislik):
+            gri_piksel = gri_resim[y][x]
+            # Aynı gri değeri 3 kez ekleyerek [Gri, Gri, Gri] formatında piksel oluşturduk
+            yeni_satir.append([gri_piksel, gri_piksel, gri_piksel])
+        sonuc_resim.append(yeni_satir)
+        
+    return np.array(sonuc_resim, dtype=np.uint8)
+
+
+def esikleme_adaptif(img, params: dict):
+    if hasattr(img, "tolist"):
+        img = img.tolist()
+
+    # Önce gelen resmi gri tonlamaya çevirmemiz lazım
+    if isinstance(img[0][0], list) and len(img[0][0]) == 3:
+        gri_img = gri_donusum(img, params)
+
+        if hasattr(gri_img, "tolist"):
+            gri_img = gri_img.tolist()
+    else:
+        gri_img = img
+
+    block_size = int(params.get("block_size", 11)) 
+    C = int(params.get("C", 2))                    
     
-    # Manuel formülü uygula - tek kanal olarak döndür
-    gray = (0.114 * b + 0.587 * g + 0.229 * r).astype(np.uint8)
+    if block_size % 2 == 0:
+        block_size += 1
+        
+    yukseklik = len(gri_img)
+    genislik = len(gri_img[0])
+    yari_boyut = block_size // 2 
     
-    return gray
+    sonuc_resim = []
+    for y in range(yukseklik):
+        satir = []
+        for x in range(genislik):
+            satir.append([0, 0, 0]) 
+        sonuc_resim.append(satir)
+        
+    for y in range(yukseklik):
+        for x in range(genislik):
+            
+            toplam_parlaklik = 0
+            piksel_sayisi = 0
+            
+            for ky in range(y - yari_boyut, y + yari_boyut + 1):
+                for kx in range(x - yari_boyut, x + yari_boyut + 1):
+                    if 0 <= ky < yukseklik and 0 <= kx < genislik:
+                        toplam_parlaklik += gri_img[ky][kx][0] 
+                        piksel_sayisi += 1
+                        
+            ortalama = toplam_parlaklik / piksel_sayisi
+            esik_degeri = ortalama - C
+            merkez_piksel_degeri = gri_img[y][x][0]
+            
+            if merkez_piksel_degeri > esik_degeri:
+                sonuc_resim[y][x] = [255, 255, 255] 
+            else:
+                sonuc_resim[y][x] = [0, 0, 0]       
+                
+    return np.array(sonuc_resim, dtype=np.uint8)
+
+
+def gurultu_ekle_ve_filtrele(img, params: dict):
+    if hasattr(img, "tolist"):
+        img = img.tolist()
+
+    amount = float(params.get("amount", 5)) / 100.0 
+    denoise = params.get("denoise", "Yok")          
+    
+    yukseklik = len(img)
+    genislik = len(img[0])
+    
+    islem_goren_resim = []
+    for y in range(yukseklik):
+        satir = []
+        for x in range(genislik):
+            piksel = img[y][x]
+            satir.append([piksel[0], piksel[1], piksel[2]])
+        islem_goren_resim.append(satir)
+        
+    toplam_piksel = yukseklik * genislik
+    bozulacak_piksel_sayisi = int(toplam_piksel * amount)
+    
+    for _ in range(bozulacak_piksel_sayisi):
+        rastgele_y = random.randint(0, yukseklik - 1)
+        rastgele_x = random.randint(0, genislik - 1)
+        
+        if random.random() > 0.5:
+            islem_goren_resim[rastgele_y][rastgele_x] = [255, 255, 255] 
+        else:
+            islem_goren_resim[rastgele_y][rastgele_x] = [0, 0, 0]       
+
+    if denoise == "Yok":
+        return np.array(islem_goren_resim, dtype=np.uint8)
+
+    temiz_resim = []
+    for y in range(yukseklik):
+        satir = []
+        for x in range(genislik):
+            satir.append([0, 0, 0])
+        temiz_resim.append(satir)
+        
+    yari_boyut = 1 
+    
+    for y in range(yukseklik):
+        for x in range(genislik):
+            
+            komsular_mavi = []
+            komsular_yesil = []
+            komsular_kirmizi = []
+            
+            for ky in range(y - yari_boyut, y + yari_boyut + 1):
+                for kx in range(x - yari_boyut, x + yari_boyut + 1):
+                    if 0 <= ky < yukseklik and 0 <= kx < genislik:
+                        komsular_mavi.append(islem_goren_resim[ky][kx][0])
+                        komsular_yesil.append(islem_goren_resim[ky][kx][1])
+                        komsular_kirmizi.append(islem_goren_resim[ky][kx][2])
+            
+            if denoise == "Mean":
+                yeni_mavi = sum(komsular_mavi) // len(komsular_mavi)
+                yeni_yesil = sum(komsular_yesil) // len(komsular_yesil)
+                yeni_kirmizi = sum(komsular_kirmizi) // len(komsular_kirmizi)
+                
+            elif denoise == "Median":
+                komsular_mavi.sort()
+                komsular_yesil.sort()
+                komsular_kirmizi.sort()
+                
+                orta_indis = len(komsular_mavi) // 2
+                
+                yeni_mavi = komsular_mavi[orta_indis]
+                yeni_yesil = komsular_yesil[orta_indis]
+                yeni_kirmizi = komsular_kirmizi[orta_indis]
+                
+            temiz_resim[y][x] = [yeni_mavi, yeni_yesil, yeni_kirmizi]
+            
+    return np.array(temiz_resim, dtype=np.uint8)
 
 
 def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
@@ -464,6 +621,7 @@ def histogram(img: np.ndarray, params: dict) -> np.ndarray:
 
 
 # Mevcut araçlar (diğerleri henüz devre dışı)
+# Mevcut araçlar ve yeni algoritmalarımızın listesi
 registry = {
     "Gri Dönüşüm": gri_donusum,
     "Binary Dönüşüm": binary_donusum,
@@ -471,4 +629,6 @@ registry = {
     "Görüntü Döndürme": goruntu_dongme,
     "Yaklaştırma / Uzaklaştırma": goruntu_olcekleme,
     "Histogram & Germe": histogram_germe,
+    "Eşikleme (Adaptif)": esikleme_adaptif,
+    "Görüntüye Gürültü Ekleme": gurultu_ekle_ve_filtrele,
 }

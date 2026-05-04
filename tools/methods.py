@@ -463,6 +463,81 @@ def histogram(img: np.ndarray, params: dict) -> np.ndarray:
     return histogram
 
 
+def goruntu_kirpma(img: np.ndarray, params: dict) -> np.ndarray:
+    """
+    Görüntüyü döngüler kullanarak manuel olarak kırpıyoruz.
+    Formül: B(i,j) = A(y1 + i, x1 + j)
+    """
+    # UI'dan (canvas_area.py) gelen seçim koordinatlarını al mouse ile
+    x1 = params.get("x1", 0)
+    y1 = params.get("y1", 0)
+    x2 = params.get("x2", img.shape[1])
+    y2 = params.get("y2", img.shape[0])
+
+    # Sınır denetimi (Boundary check)
+    H, W = img.shape[:2]
+    y1, y2 = max(0, y1), min(H, y2)
+    x1, x2 = max(0, x1), min(W, x2)
+
+    # Hedef boyut hesaplama ve boş matris tahsisi
+    h_new = y2 - y1
+    w_new = x2 - x1
+    channels = img.shape[2] if len(img.shape) == 3 else 1
+
+    if channels > 1:
+        cropped_img = np.zeros((h_new, w_new, channels), dtype=np.uint8)
+    else:
+        cropped_img = np.zeros((h_new, w_new), dtype=np.uint8)
+
+    # Piksel Transferi: Döngüler ile manuel kırpma
+    for i in range(h_new):
+        for j in range(w_new):
+            if channels > 1:
+                for c in range(channels):
+                    cropped_img[i, j, c] = img[y1 + i, x1 + j, c]
+            else:
+                cropped_img[i, j] = img[y1 + i, x1 + j]
+
+    return cropped_img
+
+
+def parlaklik_artirma(img: np.ndarray, params: dict) -> np.ndarray:
+    """
+    Görüntü parlaklığını ve kontrastını doğrusal formül ile ayarlıyoruz.
+    Formül: g(x) = alpha * f(x) + beta
+    """
+    # alpha: Kontrast, beta: Parlaklık değerlerini slider'dan alıyor
+    alpha = float(params.get("alpha", 10)) / 10.0  # Slider 10-30 -> 1.0-3.0 kat
+    beta = int(params.get("beta", 30))
+
+    # Taşmaları (overflow) önlemek için clip kullandık
+    # İşlem: f(x) * alpha + beta
+    result = np.clip(img.astype(np.float32) * alpha + beta, 0, 255).astype(np.uint8)
+
+    return result
+
+
+def renk_uzayi_donusumleri(img: np.ndarray, params: dict) -> np.ndarray:
+    """
+    Görüntüyü seçilen hedef renk uzayına dönüştürür.
+    """
+    if len(img.shape) != 3:  # Görüntü zaten gri ise işlem yapmaya gerek yok
+        return img
+
+    target = params.get("colorspace", "HSV")
+
+    if target == "HSV":
+        return cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    elif target == "YCrCb":
+        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    elif target == "Grayscale":
+
+        weights = np.array([0.114, 0.587, 0.299])
+        gray = np.dot(img[..., :3], weights).astype(np.uint8)
+        return gray
+
+    return img
+
 # Mevcut araçlar (diğerleri henüz devre dışı)
 registry = {
     "Gri Dönüşüm": gri_donusum,
@@ -471,4 +546,7 @@ registry = {
     "Görüntü Döndürme": goruntu_dongme,
     "Yaklaştırma / Uzaklaştırma": goruntu_olcekleme,
     "Histogram & Germe": histogram_germe,
+    "Görüntü Kırpma": goruntu_kirpma, 
+    "Parlaklık Artırma": parlaklik_artirma,
+    "Renk Uzayı Dönüşümleri": renk_uzayi_donusumleri,
 }

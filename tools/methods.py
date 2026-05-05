@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 
 def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
@@ -461,9 +462,256 @@ def histogram(img: np.ndarray, params: dict) -> np.ndarray:
             histogram[gray[i,j]]+=1
 
     return histogram
+def konvolusyon_uygula(resim_kanali: np.ndarray, maske_matrisi: np.ndarray) -> np.ndarray:
+    """Verilen 2 boyutlu görüntü kanalı üzerinde konvolüsyon (matris çarpımı) işlemini gerçekleştirir."""
+    maske_boyutu = maske_matrisi.shape[0]
+    kenar = maske_boyutu // 2
+    yukseklik, genislik = resim_kanali.shape
+    
+    # Görüntünün kenarlarına yansıtma (reflect) yöntemiyle dolgu (pad) ekliyoruz
+    cerceveli_resim = np.pad(resim_kanali, kenar, mode='reflect')
+    sonuc_matrisi = np.zeros_like(resim_kanali, dtype=np.float32)
 
+    for y in range(yukseklik):
+        for x in range(genislik):
+            # O anki pikselin etrafındaki komşuluk penceresi
+            pencere = cerceveli_resim[y : y + maske_boyutu, x : x + maske_boyutu]
+            # Pencere ile filtre maskesini karşılıklı çarpıp toplayarak konvolüsyonu tamamlıyoruz
+            sonuc_matrisi[y, x] = np.sum(pencere * maske_matrisi)
+            
+    return sonuc_matrisi
 
-# Mevcut araçlar (diğerleri henüz devre dışı)
+# SOBEL KENAR BULMA
+def sobel_kenar_bulma(resim: np.ndarray, params: dict) -> np.ndarray:
+    """Sobel operatörü ile x, y veya çift yönlü kenar tespiti yapan ana fonksiyon."""
+    
+    # Sobel filtre matrisleri (X ve Y yönleri için)
+    Gx = np.array([[-1,  0,  1],
+                   [-2,  0,  2],
+                   [-1,  0,  1]], dtype=np.float32)
+                   
+    Gy = np.array([[-1, -2, -1],
+                   [ 0,  0,  0],
+                   [ 1,  2,  1]], dtype=np.float32)
+
+    tum_icerik = str(params.values()).lower()
+    if "sobel x" in tum_icerik and "y" not in tum_icerik: yontem = "X"
+    elif "sobel y" in tum_icerik and "x" not in tum_icerik: yontem = "Y"
+    else: yontem = "XY"
+
+    renkli_mi = len(resim.shape) == 3
+    
+    if renkli_mi:
+        sonuc_resmi = np.zeros_like(resim, dtype=np.float32)
+        for c in range(3):
+            kanal = resim[:, :, c].astype(np.float32)
+            
+            # Ortak konvolüsyon motorunu çağırıyoruz
+            gx_sonuc = konvolusyon_uygula(kanal, Gx)
+            gy_sonuc = konvolusyon_uygula(kanal, Gy)
+            
+            if yontem == "X": sonuc_resmi[:, :, c] = np.abs(gx_sonuc)
+            elif yontem == "Y": sonuc_resmi[:, :, c] = np.abs(gy_sonuc)
+            else: sonuc_resmi[:, :, c] = np.sqrt(gx_sonuc**2 + gy_sonuc**2)
+                
+        return np.clip(sonuc_resmi, 0, 255).astype(np.uint8)
+        
+    else:
+        resim_float = resim.astype(np.float32)
+        
+        # Ortak konvolüsyon motorunu çağırıyoruz
+        gx_sonuc = konvolusyon_uygula(resim_float, Gx)
+        gy_sonuc = konvolusyon_uygula(resim_float, Gy)
+        
+        if yontem == "X": buyukluk = np.abs(gx_sonuc)
+        elif yontem == "Y": buyukluk = np.abs(gy_sonuc)
+        else: buyukluk = np.sqrt(gx_sonuc**2 + gy_sonuc**2)
+            
+        return np.clip(buyukluk, 0, 255).astype(np.uint8)
+
+# BULANIKLAŞTIRMA (BLUR) İŞLEMLERİ
+def ortalama_bulaniklastirma(resim: np.ndarray, params: dict) -> np.ndarray:
+    """Çeşitli bulanıklaştırma (blur) filtrelerini uygulayan ana fonksiyon."""
+    tum_icerik = str(params).lower()
+    if "median" in tum_icerik or "medyan" in tum_icerik: secilen_filtre = "Median"
+    elif "bilateral" in tum_icerik or "çift" in tum_icerik: secilen_filtre = "Bilateral"
+    elif "gaussian" in tum_icerik or "gauss" in tum_icerik: secilen_filtre = "Gaussian"
+    else: secilen_filtre = "Average"
+
+    maske_boyutu = int(params.get("ksize", 3))
+    if maske_boyutu % 2 == 0: maske_boyutu += 1
+    kenar = maske_boyutu // 2
+
+    renkli_mi = len(resim.shape) == 3
+    yukseklik, genislik = resim.shape[:2]
+    sonuc_resmi = np.zeros_like(resim, dtype=np.float32)
+
+    # 1. ORTALAMA (AVERAGE) BLUR
+    if secilen_filtre == "Average":
+        maske = np.ones((maske_boyutu, maske_boyutu), dtype=np.float32) / (maske_boyutu**2)
+        if renkli_mi:
+            for c in range(3): 
+                sonuc_resmi[:, :, c] = konvolusyon_uygula(resim[:, :, c].astype(np.float32), maske)
+        else: 
+            sonuc_resmi = konvolusyon_uygula(resim.astype(np.float32), maske)
+
+    # 2. GAUSSIAN BLUR
+    elif secilen_filtre == "Gaussian":
+        sigma = float(params.get("sigma", maske_boyutu / 3.0))
+        maske = np.zeros((maske_boyutu, maske_boyutu), dtype=np.float32)
+        
+        for ky in range(maske_boyutu):
+            for kx in range(maske_boyutu):
+                maske[ky, kx] = math.exp(-((kx - kenar)**2 + (ky - kenar)**2) / (2 * sigma**2))
+        maske /= np.sum(maske) 
+        
+        if renkli_mi:
+            for c in range(3): 
+                sonuc_resmi[:, :, c] = konvolusyon_uygula(resim[:, :, c].astype(np.float32), maske)
+        else: 
+            sonuc_resmi = konvolusyon_uygula(resim.astype(np.float32), maske)
+
+    # 3. MEDYAN (MEDIAN) BLUR
+    elif secilen_filtre == "Median":
+        kanallar = range(3) if renkli_mi else [None]
+        for c in kanallar:
+            kanal_verisi = resim[:, :, c] if renkli_mi else resim
+            cerceveli = np.pad(kanal_verisi, kenar, mode='reflect')
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu]
+                    if renkli_mi: sonuc_resmi[y, x, c] = np.median(pencere)
+                    else: sonuc_resmi[y, x] = np.median(pencere)
+
+    # 4. ÇİFT YÖNLÜ (BILATERAL) BLUR
+    elif secilen_filtre == "Bilateral":
+        sigma_mesafe = 75.0
+        sigma_renk = 75.0
+        
+        mesafe_maskesi = np.zeros((maske_boyutu, maske_boyutu), dtype=np.float32)
+        for ky in range(maske_boyutu):
+            for kx in range(maske_boyutu):
+                mesafe_maskesi[ky, kx] = math.exp(-((kx - kenar)**2 + (ky - kenar)**2) / (2 * sigma_mesafe**2))
+
+        kanallar = range(3) if renkli_mi else [None]
+        for c in kanallar:
+            kanal_verisi = resim[:, :, c].astype(np.float32) if renkli_mi else resim.astype(np.float32)
+            cerceveli = np.pad(kanal_verisi, kenar, mode='reflect')
+            
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu]
+                    merkez_piksel = pencere[kenar, kenar]
+                    
+                    renk_maskesi = np.exp(-((pencere - merkez_piksel)**2) / (2 * sigma_renk**2))
+                    toplam_maske = mesafe_maskesi * renk_maskesi
+                    
+                    yeni_deger = np.sum(pencere * toplam_maske) / np.sum(toplam_maske)
+                    
+                    if renkli_mi: sonuc_resmi[y, x, c] = yeni_deger
+                    else: sonuc_resmi[y, x] = yeni_deger
+
+    return np.clip(sonuc_resmi, 0, 255).astype(np.uint8)
+
+def morfolojik_genisletme(resim: np.ndarray, params: dict) -> np.ndarray:
+    maske_boyutu = int(params.get("ksize", 3))
+    if maske_boyutu % 2 == 0: maske_boyutu += 1
+    kenar = maske_boyutu // 2
+    tekrar_sayisi = int(params.get("iterations", params.get("iterasyon", 1)))
+    kernel_tipi = str(params.get("kernel_shape", params.get("kernel_type", "Dikdörtgen"))).lower()
+
+    maske = np.zeros((maske_boyutu, maske_boyutu), dtype=np.uint8)
+    merkez = maske_boyutu // 2
+    if "haç" in kernel_tipi or "artı" in kernel_tipi:
+        for i in range(maske_boyutu): maske[merkez, i] = 1; maske[i, merkez] = 1
+    elif "daire" in kernel_tipi or "elips" in kernel_tipi:
+        for y in range(maske_boyutu):
+            for x in range(maske_boyutu):
+                if (x - merkez)**2 + (y - merkez)**2 <= merkez**2: maske[y, x] = 1
+    else:
+        maske = np.ones((maske_boyutu, maske_boyutu), dtype=np.uint8)
+
+    gecici_resim = resim.copy()
+    renkli_mi = len(gecici_resim.shape) == 3
+
+    for _ in range(tekrar_sayisi):
+        yukseklik, genislik = gecici_resim.shape[:2]
+        sonuc_resmi = np.zeros_like(gecici_resim)
+        
+        if renkli_mi:
+            cerceveli = np.pad(gecici_resim, ((kenar, kenar), (kenar, kenar), (0, 0)), mode='reflect')
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu, :]
+                    for c in range(3):
+                        sonuc_resmi[y, x, c] = np.max(pencere[:, :, c][maske == 1])
+        else:
+            cerceveli = np.pad(gecici_resim, kenar, mode='reflect')
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu]
+                    sonuc_resmi[y, x] = np.max(pencere[maske == 1])
+        gecici_resim = sonuc_resmi.copy()
+    return gecici_resim
+
+def morfolojik_asindirma(resim: np.ndarray, params: dict) -> np.ndarray:
+    maske_boyutu = int(params.get("ksize", 3))
+    if maske_boyutu % 2 == 0: maske_boyutu += 1
+    kenar = maske_boyutu // 2
+    tekrar_sayisi = int(params.get("iterations", params.get("iterasyon", 1)))
+    kernel_tipi = str(params.get("kernel_shape", params.get("kernel_type", "Dikdörtgen"))).lower()
+
+    maske = np.zeros((maske_boyutu, maske_boyutu), dtype=np.uint8)
+    merkez = maske_boyutu // 2
+    if "haç" in kernel_tipi or "artı" in kernel_tipi:
+        for i in range(maske_boyutu): maske[merkez, i] = 1; maske[i, merkez] = 1
+    elif "daire" in kernel_tipi or "elips" in kernel_tipi:
+        for y in range(maske_boyutu):
+            for x in range(maske_boyutu):
+                if (x - merkez)**2 + (y - merkez)**2 <= merkez**2: maske[y, x] = 1
+    else:
+        maske = np.ones((maske_boyutu, maske_boyutu), dtype=np.uint8)
+
+    gecici_resim = resim.copy()
+    renkli_mi = len(gecici_resim.shape) == 3
+
+    for _ in range(tekrar_sayisi):
+        yukseklik, genislik = gecici_resim.shape[:2]
+        sonuc_resmi = np.zeros_like(gecici_resim)
+        
+        if renkli_mi:
+            cerceveli = np.pad(gecici_resim, ((kenar, kenar), (kenar, kenar), (0, 0)), mode='reflect')
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu, :]
+                    for c in range(3):
+                        sonuc_resmi[y, x, c] = np.min(pencere[:, :, c][maske == 1])
+        else:
+            cerceveli = np.pad(gecici_resim, kenar, mode='reflect')
+            for y in range(yukseklik):
+                for x in range(genislik):
+                    pencere = cerceveli[y : y + maske_boyutu, x : x + maske_boyutu]
+                    sonuc_resmi[y, x] = np.min(pencere[maske == 1])
+        gecici_resim = sonuc_resmi.copy()
+    return gecici_resim
+
+def morfolojik_acma(resim: np.ndarray, params: dict) -> np.ndarray:
+    return morfolojik_genisletme(morfolojik_asindirma(resim, params), params)
+
+def morfolojik_kapama(resim: np.ndarray, params: dict) -> np.ndarray:
+    return morfolojik_asindirma(morfolojik_genisletme(resim, params), params)
+
+def morfolojik_islem_yonlendirici(resim: np.ndarray, params: dict) -> np.ndarray:
+    """Arayüzden gelen komuta göre ilgili fonksiyona yönlendirir."""
+    tum_icerik = str(params).lower()
+    if "aşınma" in tum_icerik or "asinma" in tum_icerik or "aşındırma" in tum_icerik or "erode" in tum_icerik: 
+        return morfolojik_asindirma(resim, params)
+    elif "açma" in tum_icerik or "acma" in tum_icerik or "opening" in tum_icerik: 
+        return morfolojik_acma(resim, params)
+    elif "kapama" in tum_icerik or "closing" in tum_icerik: 
+        return morfolojik_kapama(resim, params)
+    else: 
+        return morfolojik_genisletme(resim, params)
 registry = {
     "Gri Dönüşüm": gri_donusum,
     "Binary Dönüşüm": binary_donusum,
@@ -471,4 +719,7 @@ registry = {
     "Görüntü Döndürme": goruntu_dongme,
     "Yaklaştırma / Uzaklaştırma": goruntu_olcekleme,
     "Histogram & Germe": histogram_germe,
+    "Kenar Bulma (Sobel)": sobel_kenar_bulma,
+    "Blurring": ortalama_bulaniklastirma,
+    "Morfolojik İşlemler": morfolojik_islem_yonlendirici
 }

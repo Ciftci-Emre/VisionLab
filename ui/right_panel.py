@@ -13,16 +13,16 @@ TOOL_PARAMS: dict[str, list[dict]] = {
     "Binary Dönüşüm": [
         {"label": "Yöntem", "key": "method", "type": "combo",
          "options": ["Eşik (Threshold)", "Otsu"], "default": "Otsu"},
-        {"label": "Eşik değeri (Eşik için)", "key": "threshold", "type": "slider", "min": 0, "max": 255, "default": 127},
+        {"label": "Eşik değeri (Eşik için)", "key": "threshold", "type": "slider", "min": 0, "max": 255, "default": 127, "display": "raw"},
     ],
 
     "Renk Uzayı Dönüşümleri": [
-        {"label": "Hedef uzay", "key": "colorspace", "type": "combo",
-         "options": ["HSV","YCrCb","Grayscale"],                           "default": "HSV"},
+        {"label": "Dönüşüm", "key": "colorspace", "type": "combo",
+         "options": ["RGB'den NTSC'ye", "NTSC'den RGB'ye"], "default": "RGB'den NTSC'ye"},
     ],
 
     "Görüntü Döndürme": [
-        {"label": "Açı (°)", "key": "angle", "type": "slider", "min": -180, "max": 180, "default": 90},
+        {"label": "Açı (°)", "key": "angle", "type": "slider", "min": 0, "max": 360, "default": 90, "display": "raw"},
     ],
 
     "Görüntü Kırpma": [
@@ -31,29 +31,28 @@ TOOL_PARAMS: dict[str, list[dict]] = {
     ],
 
     "Yaklaştırma / Uzaklaştırma": [
-        {"label": "Oran (%)", "key": "scale", "type": "slider", "min": 10, "max": 300, "default": 150},
+        {"label": "Oran (x)", "key": "scale", "type": "slider", "min": 1, "max": 30, "default": 10},
     ],
 
-    "Parlaklık Artırma": [
-        {"label": "Parlaklık (beta)", "key": "beta",  "type": "slider", "min": -100, "max": 100, "default": 30},
-        {"label": "Kontrast ×10",     "key": "alpha", "type": "slider", "min": 1,    "max": 30,  "default": 10},
+    "Kontrast/Parlaklık": [
+        {"label": "Parlaklık",  "key": "beta",  "type": "slider", "min": -255, "max": 255, "default": 0, "display": "raw"},
+        {"label": "Kontrast",   "key": "alpha", "type": "slider", "min": 1,    "max": 30,  "default": 10},
     ],
 
     "Histogram & Germe": [
-        {"label": "Alt kesim (0-255)",  "key": "p_low",  "type": "slider", "min": 0, "max": 255, "default": 0},
-        {"label": "Üst kesim (0-255)", "key": "p_high", "type": "slider", "min": 0, "max": 255, "default": 255},
+        {"label": "Alt kesim (0-255)",  "key": "p_low",  "type": "slider", "min": 0, "max": 255, "default": 0,   "display": "raw"},
+        {"label": "Üst kesim (0-255)", "key": "p_high", "type": "slider", "min": 0, "max": 255, "default": 255, "display": "raw"},
         {"label": "Histogram göster", "key": "show_histogram", "type": "check", "default": True},
     ],
 
     "Konvolüsyon İşlemi (Gauss)": [
-        {"label": "Kernel boyutu (tek)", "key": "ksize",   "type": "slider", "min": 1, "max": 31, "default": 5},
-        {"label": "Sigma",             "key": "sigma", "type": "slider", "min": 1, "max": 50, "default": 1},
+        {"label": "Kernel boyutu (tek)", "key": "ksize", "type": "combo",
+         "options": ["3","5","7","9","11","13","15","17","19","21"], "default": "5"},
+        {"label": "Sigma",              "key": "sigma", "type": "slider", "min": 1, "max": 200, "default": 10},
     ],
 
     "Blurring": [
-        {"label": "Filtre tipi", "key": "blur_type", "type": "combo",
-         "options": ["Gaussian","Average (Box)","Median","Bilateral"],        "default": "Gaussian"},
-        {"label": "Kernel boyutu (tek)", "key": "ksize", "type": "slider",   "min": 1, "max": 31, "default": 5},
+        {"label": "Disk Kernel Yarıçapı", "key": "radius", "type": "slider", "min": 3, "max": 50, "default": 5, "display": "raw"},
     ],
 
     "Kenar Bulma (Sobel)": [
@@ -61,17 +60,15 @@ TOOL_PARAMS: dict[str, list[dict]] = {
          "options": ["Sobel XY","Sobel X","Sobel Y"],                         "default": "Sobel XY"},
     ],
 
-    "Eşikleme (Adaptif)": [
-        {"label": "Yöntem", "key": "method", "type": "combo",
-         "options": ["Adaptive Gaussian","Adaptive Mean","Otsu","Global"],    "default": "Adaptive Gaussian"},
-        {"label": "Block boyutu (tek)", "key": "block_size", "type": "slider","min": 3, "max": 51, "default": 11},
-        {"label": "C sabiti",           "key": "C",          "type": "slider","min": -20,"max": 20,"default": 2},
+    "Filtreler": [
+        {"label": "Filtre tipi",    "key": "filter_type", "type": "combo",
+         "options": ["Mean Filtre", "Median Filtre"], "default": "Mean Filtre"},
+        {"label": "Kernel boyutu", "key": "ksize",       "type": "combo",
+         "options": ["3","5","7","9","11","13","15","17","19","21"], "default": "3"},
     ],
 
     "Görüntüye Gürültü Ekleme": [
-        {"label": "Yoğunluk (%)", "key": "amount",  "type": "slider",        "min": 1, "max": 50, "default": 5},
-        {"label": "Filtre",    "key": "denoise", "type": "combo",
-         "options": ["Yok","Mean","Median"],                                  "default": "Yok"},
+        {"label": "Yoğunluk (%)", "key": "amount", "type": "slider", "min": 1, "max": 50, "default": 5},
         {"label": None, "key": "_info2", "type": "info",
          "text": "Mouse ile bölge seçerek\nsadece o alana gürültü\neklenebilir."},
     ],
@@ -86,10 +83,10 @@ TOOL_PARAMS: dict[str, list[dict]] = {
         {"label": "İşlem", "key": "operation", "type": "combo",
          "options": ["Genişleme (Dilate)","Aşınma (Erode)","Açma (Opening)","Kapama (Closing)"],
          "default": "Genişleme (Dilate)"},
-        {"label": "Kernel tipi", "key": "kernel_shape", "type": "combo",
-         "options": ["Dikdörtgen","Elips","Çapraz"],                          "default": "Dikdörtgen"},
-        {"label": "Kernel boyutu", "key": "ksize",      "type": "slider",    "min": 1, "max": 21, "default": 3},
-        {"label": "İterasyon",     "key": "iterations", "type": "slider",    "min": 1, "max": 10, "default": 1},
+        {"label": "Kernel tipi",   "key": "kernel_shape",  "type": "combo",
+         "options": ["Dikdörtgen","Elips"], "default": "Dikdörtgen"},
+        {"label": "Kernel boyutu", "key": "ksize",         "type": "slider", "min": 3, "max": 20, "default": 3, "display": "raw"},
+        {"label": "Elips Yarıçapı","key": "elips_radius",  "type": "slider", "min": 3, "max": 50, "default": 5, "display": "raw"},
     ],
 }
 
@@ -204,12 +201,15 @@ class RightPanel(QScrollArea):
             slider.setMaximum(p["max"])
             slider.setValue(p["default"])
 
-            val_lbl = QLabel(str(p["default"]))
+            if p.get("display") == "raw":
+                val_lbl = QLabel(str(p["default"]))
+                slider.valueChanged.connect(lambda v, l=val_lbl: l.setText(str(v)))
+            else:
+                val_lbl = QLabel(f"{p['default']/10:.1f}")
+                slider.valueChanged.connect(lambda v, l=val_lbl: l.setText(f"{v/10:.1f}"))
             val_lbl.setFixedWidth(34)
             val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             val_lbl.setStyleSheet("color: #89b4fa; font-size: 12px;")
-
-            slider.valueChanged.connect(lambda v, l=val_lbl: l.setText(str(v)))
             hl.addWidget(slider)
             hl.addWidget(val_lbl)
             self._vbox.addWidget(row)
@@ -235,7 +235,10 @@ class RightPanel(QScrollArea):
         params = {}
         for key, w in self._widgets.items():
             if isinstance(w, QSlider):
-                params[key] = w.value()
+                if key in ("scale", "alpha", "sigma"):
+                    params[key] = w.value() / 10.0
+                else:
+                    params[key] = w.value()
             elif isinstance(w, QComboBox):
                 params[key] = w.currentText()
             elif isinstance(w, QCheckBox):

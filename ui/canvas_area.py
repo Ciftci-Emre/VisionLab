@@ -5,18 +5,19 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor
-import cv2
 import numpy as np
 
 
 def ndarray_to_pixmap(img: np.ndarray) -> QPixmap:
-    """OpenCV BGR → QPixmap"""
+    """Numpy ndarray → QPixmap (cv2 bağımlılığı olmadan)"""
     if img is None:
         return QPixmap()
     if len(img.shape) == 2:
-        rgb = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        # Tek kanallı (Gri) resmi 3 kanallı RGB'ye çevir
+        rgb = np.stack((img, img, img), axis=-1)
     else:
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # BGR resmi RGB'ye çevir (Kanalları ters çevir)
+        rgb = img[:, :, ::-1].copy()
     h, w, ch = rgb.shape
     qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
     return QPixmap.fromImage(qimg)
@@ -38,6 +39,8 @@ class ImageCanvas(QLabel):
         self._allow_selection = allow_selection
         self._orig_img: np.ndarray | None = None
         self._pixmap_base: QPixmap | None = None
+        self._scaled_pm: QPixmap | None = None
+        self._last_size = self.size()
         self._sel_start: QPoint | None = None
         self._sel_rect: QRect | None = None
         self._selecting = False
@@ -52,12 +55,13 @@ class ImageCanvas(QLabel):
         self._sel_rect = None
         if img is None:
             self._pixmap_base = None
+            self._scaled_pm = None
             self.setText("Resim yüklenmedi")
-            self.setPixmap(QPixmap())
         else:
             self.setText("")
             self._pixmap_base = ndarray_to_pixmap(img)
-            self._refresh_display()
+            self._scaled_pm = None
+        self.update()
 
     def get_selection_pixels(self) -> tuple | None:
         """Canvas koordinatlarını orijinal resim koordinatlarına çevirir."""
@@ -86,7 +90,7 @@ class ImageCanvas(QLabel):
 
     def clear_selection(self):
         self._sel_rect = None
-        self._refresh_display()
+        self.update()
 
     def enable_selection(self, enable: bool):
         self._allow_selection = enable
@@ -105,7 +109,7 @@ class ImageCanvas(QLabel):
     def mouseMoveEvent(self, event):
         if self._selecting and self._sel_start:
             self._sel_rect = QRect(self._sel_start, event.pos()).normalized()
-            self._refresh_display()
+            self.update()
 
     def mouseReleaseEvent(self, event):
         if self._selecting:
@@ -115,32 +119,29 @@ class ImageCanvas(QLabel):
 
     # ── Paint ────────────────────────────────────────────────────────
 
-    def _refresh_display(self):
-        if self._pixmap_base is None:
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._pixmap_base is None or self._pixmap_base.isNull():
             return
-        pm = self._pixmap_base.scaled(
-            self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
+
+        if self._scaled_pm is None or self._last_size != self.size():
+            self._scaled_pm = self._pixmap_base.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self._last_size = self.size()
+
+        painter = QPainter(self)
+        
+        pm = self._scaled_pm
+        x = (self.width() - pm.width()) // 2
+        y = (self.height() - pm.height()) // 2
+        painter.drawPixmap(x, y, pm)
+
         if self._sel_rect:
-            pm = pm.copy()
-            painter = QPainter(pm)
             pen = QPen(QColor("#89b4fa"), 2, Qt.DashLine)
             painter.setPen(pen)
             painter.setBrush(QColor(137, 180, 250, 30))
-
-            # Seçimi görüntülenen pixmap boyutuna taşı
-            lw, lh = self.width(), self.height()
-            pw, ph = pm.width(), pm.height()
-            off_x = (lw - pw) // 2
-            off_y = (lh - ph) // 2
-            shifted = self._sel_rect.translated(-off_x, -off_y)
-            painter.drawRect(shifted)
-            painter.end()
-        self.setPixmap(pm)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._refresh_display()
+            painter.drawRect(self._sel_rect)
 
 
 class CanvasArea(QWidget):
@@ -164,7 +165,7 @@ class CanvasArea(QWidget):
         self.canvas_in = ImageCanvas(allow_selection=False)
         in_layout.addWidget(in_title)
         in_layout.addWidget(self.canvas_in)
-        root.addWidget(in_box)
+        root.addWidget(in_box, 1)
 
         # Ok
         arrow = QLabel("→")
@@ -182,7 +183,7 @@ class CanvasArea(QWidget):
         self.canvas_out = ImageCanvas(allow_selection=False)
         out_layout.addWidget(out_title)
         out_layout.addWidget(self.canvas_out)
-        root.addWidget(out_box)
+        root.addWidget(out_box, 1)
 
     # ── Public ──────────────────────────────────────────────────────
 

@@ -6,26 +6,23 @@ import matplotlib.pyplot as plt
 
 def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     """Renk görüntüsünü gri (grayscale) görüntüye dönüştür.
-    
-    Formül: Gray = 0.229*R + 0.587*G + 0.114*B
+    Formül: Gray = 0.299*R + 0.587*G + 0.114*B
     """
     if len(img.shape) == 2:
         return img
-    # BGR kanallarını ayır
+    # RGB kanallarını ayır
     if len(img.shape)==3:
         r = img[:, :, 2].astype(np.float32)
         g = img[:, :, 1].astype(np.float32)
         b = img[:, :, 0].astype(np.float32)
     
-    # Manuel formülü uygula - tek kanal olarak döndür
-    gray = (0.114 * b + 0.587 * g + 0.229 * r).astype(np.uint8)
+    gray = (0.114 * b + 0.587 * g + 0.299 * r).astype(np.uint8)
     
     return gray
 
 
 def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     """İki resmin pixellerini toplayarak ekleme işlemi yap.
-    
     3 kanallı + 3 kanallı: Kanal başına toplama (R+R, G+G, B+B)
     3 kanallı + 1 kanallı: Her kanala 1 kanallı değer ekleme (R+değer, G+değer, B+değer)
     1 kanallı + 1 kanallı: Normal toplama
@@ -69,7 +66,6 @@ def resim_ekleme(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
 
 def resim_carpma(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     """İki resmin pixellerini çarparak çarpma işlemi yap.
-    
     3 kanallı + 3 kanallı: Kanal başına çarpma (R*R, G*G, B*B)
     3 kanallı + 1 kanallı: Her kanala 1 kanallı değer çarpma (R*değer, G*değer, B*değer)
     1 kanallı + 1 kanallı: Normal çarpma
@@ -115,7 +111,6 @@ def resim_carpma(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
 
 def binary_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     """Binary dönüşüm yap (Eşik veya Otsu yöntemi).
-    
     Eşik (Threshold): Verilen eşik değerine göre bölüm
     Otsu: Otomatik eşik değeri hesaplayarak bölüm
     """
@@ -169,15 +164,11 @@ def binary_donusum(img: np.ndarray, params: dict) -> np.ndarray:
 
 def gauss_konvolüsyon(img: np.ndarray, params: dict) -> np.ndarray:
     """Gauss çekirdeği ile konvolüsyon işlemi yap.
-    
     Gauss filtresi kullanarak görüntüyü bulanıklaştırır.
     Her kanal ayrı ayrı işleme tabi tutulur.
     """
-    # Kernel boyutu (tek olması gerekli)
+    # Kernel boyutu
     ksize = int(params.get("ksize", 5))
-    if ksize % 2 == 0:
-        ksize += 1
-    
     sigma = float(params.get("sigma", 1.0))
 
     # Gauss çekirdeğini oluştur
@@ -215,7 +206,7 @@ def konvolusyon(img: np.ndarray, kernel: np.ndarray, dondurme=True) -> np.ndarra
     """Konvolüsyon işlemini uygula (padding ile)."""
     if dondurme:
         kernel=np.flip(kernel)
-    ksize = kernel.shape[0]
+    ksize = kernel.shape[0] #zaten kernel kare seklinde geliyor
     padding=ksize//2 #zero padding yapacağız
 
     padding_img=np.zeros((img.shape[0]+2*padding, img.shape[1]+2*padding))
@@ -234,9 +225,8 @@ def konvolusyon(img: np.ndarray, kernel: np.ndarray, dondurme=True) -> np.ndarra
     return output #unutma output float32 dönüyor
 
 
-def goruntu_dongme(img: np.ndarray, params: dict) -> np.ndarray:
-    """Görüntüyü belirtilen açıda döndür (bilineer interpolasyon).
-
+def goruntu_dondurme(img: np.ndarray, params: dict) -> np.ndarray:
+    """Görüntüyü belirtilen açıda döndür (nearest neighbor interpolasyonu).
     Parametreler:
         angle (float): Döndürme açısı (derece, saat yönünün tersine pozitif).
     """
@@ -274,8 +264,7 @@ def goruntu_dongme(img: np.ndarray, params: dict) -> np.ndarray:
 
 
 def goruntu_olcekleme(img: np.ndarray, params: dict) -> np.ndarray:
-    """Görüntüyü yaklaştır veya uzaklaştır (bilineer interpolasyon).
-
+    """Görüntüyü yaklaştır veya uzaklaştır (nearest neighbor interpolasyonu).
     Parametreler:
         scale (float): Hem yatay hem dikey için eşit ölçek oranı.
     """
@@ -292,13 +281,13 @@ def goruntu_olcekleme(img: np.ndarray, params: dict) -> np.ndarray:
 
     for y in range(yeni_h):
         for x in range(yeni_w):
-            yeni_x = int(x / scale)
-            yeni_y = int(y / scale)
+            eski_x = int(x / scale)
+            eski_y = int(y / scale)
 
-            yeni_x = min(yeni_x, w - 1) #bazen yeni_x veya yeni_y orijinal resmin sınırlarını aşabiliyor, bu yüzden kırpıyoruz
-            yeni_y = min(yeni_y, h - 1)
+            eski_x = min(eski_x, w - 1) #bazen eski_x veya eski_y orijinal resmin sınırlarını aşabiliyor, bu yüzden kırpıyoruz
+            eski_y = min(eski_y, h - 1)
             
-            yeni_resim[y,x]=img[yeni_y, yeni_x]
+            yeni_resim[y,x]=img[eski_y, eski_x]
     return yeni_resim
 
 
@@ -363,7 +352,7 @@ def _histogram_goster(
     is_color: bool,
     channels: int,
 ) -> None:
-    """Orijinal ve işlem görmüş görüntünün histogramını senin 'histogram' fonksiyonunla gösterir."""
+    """Orijinal ve işlem görmüş görüntünün histogramını 'histogram' fonksiyonu ile gösterir."""
     kanal_renkleri = ["blue", "green", "red"]
     kanal_adlari = ["B", "G", "R"]
 
@@ -389,7 +378,7 @@ def _histogram_goster(
             renk = "gray"
             ad = "Gray"
 
-        # Kendi yazdığın 'histogram' fonksiyonunu çağırıyoruz
+        #'histogram' fonksiyonunu çağırıyoruz
         # Boş bir params sözlüğü gönderiyoruz
         hist_orig = histogram(orig_ch, {})
         hist_res = histogram(res_ch, {})
@@ -399,7 +388,7 @@ def _histogram_goster(
         axes[0][c].set_title(f"Orijinal — {ad}")
         axes[0][c].set_xlim(0, 255)
 
-        # İşlenmiş (Gerdirilmiş/Ölçeklenmiş vb.) histogramı çizdir
+        # İşlenmiş (Gerdirilmiş/Ölçeklenmiş) histogramı çizdir
         axes[1][c].bar(x_ekseni, hist_res, width=1, color=renk, alpha=0.75)
         axes[1][c].set_title(f"İşlenmiş — {ad}")
         axes[1][c].set_xlim(0, 255)
@@ -471,8 +460,8 @@ def renk_uzayi_donusumu(img: np.ndarray, params: dict) -> np.ndarray:
 
     RGB'den NTSC'ye:
         Y =  0.299R + 0.587G + 0.114B       (0–255)
-        I =  0.596R - 0.274G - 0.322B       (≈-152 – 152) → +128 ile 0–255'e taşınır
-        Q =  0.212R - 0.523G + 0.311B       (≈-134 – 134) → +128 ile 0–255'e taşınır
+        I =  0.596R - 0.274G - 0.322B       (-152 – 152) -> +128 ile 0–255'e taşınır
+        Q =  0.212R - 0.523G + 0.311B       (-134 – 134) -> +128 ile 0–255'e taşınır
     Çıkış BGR sırasıyla saklanır: B=Q+128, G=I+128, R=Y
 
     NTSC'den RGB'ye:
@@ -502,7 +491,7 @@ def renk_uzayi_donusumu(img: np.ndarray, params: dict) -> np.ndarray:
         result = np.stack([Q_out, I_out, Y_out], axis=2).astype(np.uint8)
 
     else:  # NTSC'den RGB'ye
-        # Girdi: B←Q+128, G←I+128, R←Y
+        # Girdi: B=Q+128, G=I+128, R=Y
         Y =  R.copy()
         I =  G - 128.0
         Q =  B - 128.0
@@ -639,7 +628,7 @@ def gurultu_ekleme(img: np.ndarray, params: dict) -> np.ndarray:
     """Salt & Pepper gürültüsü ekler.
 
     Parametreler:
-        amount (int): Gürültü yoğunluğu (1–50, yüzde olarak).
+        amount (int): Gürültü yoğunluğu (yüzde olarak).
                       Tüm piksellerin amount% kadarı siyah (pepper)
                       veya beyaz (salt) yapılır.
     """
@@ -682,17 +671,17 @@ def morfolojik_islemler(img: np.ndarray, params: dict) -> np.ndarray:
                             "Açma (Opening)", "Kapama (Closing)".
         kernel_shape (str): "Dikdörtgen" veya "Elips".
         ksize        (int): Dikdörtgen kernel boyutu (3-20).
-        elips_radius (int): Elips yarıçapı (3-50, Elips seçilince kullanılır).
+        elips_radius (int): Elips yarıçapı (Elips seçilince kullanılır).
     """
     operation    = params.get("operation",    "Genişleme (Dilate)")
     kernel_shape = params.get("kernel_shape", "Dikdörtgen")
     ksize        = int(params.get("ksize",        3))
     elips_radius = int(params.get("elips_radius", 5))
 
-    # ── Girdiyi binary'e dönüştür ─────────────────────────────────────
+    #  Girdiyi binary'e dönüştür
     binary = binary_donusum(img, {"method": "Otsu"})  # her zaman tek kanal
 
-    # ── Kernel oluştur ────────────────────────────────────────────────
+    #  Kernel oluştur
     if kernel_shape == "Dikdörtgen":
         kernel = np.ones((ksize, ksize), dtype=np.uint8)
     else:  # Elips — disk_kernel normalizasyonsuz kullan
@@ -701,30 +690,58 @@ def morfolojik_islemler(img: np.ndarray, params: dict) -> np.ndarray:
     kernel_h, kernel_w = kernel.shape
     pad_h, pad_w = kernel_h // 2, kernel_w // 2
 
-    # ── Dilate / Erode (binary) ───────────────────────────────────────
+    #  Dilate / Erode (binary)
     def dilate(resim: np.ndarray) -> np.ndarray:
-        """Binary genişleme: kernel alanında herhangi bir 255 varsa → 255."""
+        """Genişleme Algoritması"""
         h, w = resim.shape
         padded = np.pad(resim, ((pad_h, pad_h), (pad_w, pad_w)), mode="constant", constant_values=0)
         out = np.zeros_like(resim)
         for y in range(h):
             for x in range(w):
+                giris_pikseli = resim[y, x]
                 bolge = padded[y:y + kernel_h, x:x + kernel_w]
-                out[y, x] = 255 if np.any(bolge[kernel == 1] == 255) else 0
+                komsular = bolge[kernel == 1]
+                
+                tum_komsular_1 = np.all(komsular == 255)
+                tum_komsular_0 = np.all(komsular == 0)
+                bazi_1_bazi_0 = not (tum_komsular_1 or tum_komsular_0)
+
+                if giris_pikseli == 255 and tum_komsular_1:
+                    out[y, x] = 255
+                elif giris_pikseli == 255 and bazi_1_bazi_0:
+                    out[y, x] = 255
+                elif giris_pikseli == 0 and bazi_1_bazi_0:
+                    out[y, x] = 255
+                elif giris_pikseli == 0 and tum_komsular_0:
+                    out[y, x] = 0
         return out
 
     def erode(resim: np.ndarray) -> np.ndarray:
-        """Binary aşınma: kernel alanının tamamı 255 ise → 255, değilse → 0."""
+        """Aşınma Algoritması"""
         h, w = resim.shape
         padded = np.pad(resim, ((pad_h, pad_h), (pad_w, pad_w)), mode="constant", constant_values=0)
         out = np.zeros_like(resim)
         for y in range(h):
             for x in range(w):
+                giris_pikseli = resim[y, x]
                 bolge = padded[y:y + kernel_h, x:x + kernel_w]
-                out[y, x] = 255 if np.all(bolge[kernel == 1] == 255) else 0
+                komsular = bolge[kernel == 1]
+                
+                tum_komsular_1 = np.all(komsular == 255)
+                tum_komsular_0 = np.all(komsular == 0)
+                bazi_1_bazi_0 = not (tum_komsular_1 or tum_komsular_0)
+
+                if giris_pikseli == 255 and tum_komsular_1:
+                    out[y, x] = 255
+                elif giris_pikseli == 255 and bazi_1_bazi_0:
+                    out[y, x] = 0
+                elif giris_pikseli == 0 and bazi_1_bazi_0:
+                    out[y, x] = 0
+                elif giris_pikseli == 0 and tum_komsular_0:
+                    out[y, x] = 0
         return out
 
-    # ── İşlemi uygula ────────────────────────────────────────────────
+    #  İşlemi uygula
     if operation == "Genişleme (Dilate)":
         result = dilate(binary)
     elif operation == "Aşınma (Erode)":
@@ -736,13 +753,13 @@ def morfolojik_islemler(img: np.ndarray, params: dict) -> np.ndarray:
 
     return result
 
-# Mevcut araçlar (diğerleri henüz devre dışı)
+# Mevcut araçlar
 registry = {
     "Renk Uzayı Dönüşümleri": renk_uzayi_donusumu,
     "Gri Dönüşüm": gri_donusum,
     "Binary Dönüşüm": binary_donusum,
     "Konvolüsyon İşlemi (Gauss)": gauss_konvolüsyon,
-    "Görüntü Döndürme": goruntu_dongme,
+    "Görüntü Döndürme": goruntu_dondurme,
     "Yaklaştırma / Uzaklaştırma": goruntu_olcekleme,
     "Görüntü Kırpma": resim_kirpma,
     "Histogram & Germe": histogram_germe,

@@ -136,7 +136,7 @@ def binary_donusum(img: np.ndarray, params: dict) -> np.ndarray:
         toplam_pixel=sum(hist)
         olasilik_dagilimi=np.zeros(256)
         max_varyans=0
-        threshold=0
+        threshold=127  # Ekstrem durumlar (tamamen siyah/beyaz resimler) için güvenli varsayılan
         for i in range(256):
             olasilik_dagilimi[i]=hist[i]/toplam_pixel
 
@@ -162,7 +162,7 @@ def binary_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     return gray
 
 
-def gauss_konvolüsyon(img: np.ndarray, params: dict) -> np.ndarray:
+def gauss_konvolusyon(img: np.ndarray, params: dict) -> np.ndarray:
     """Gauss çekirdeği ile konvolüsyon işlemi yap.
     Gauss filtresi kullanarak görüntüyü bulanıklaştırır.
     Her kanal ayrı ayrı işleme tabi tutulur.
@@ -219,8 +219,7 @@ def konvolusyon(img: np.ndarray, kernel: np.ndarray, dondurme=True) -> np.ndarra
     output = np.zeros_like(img, dtype=np.float32)
     for y in range(img_h):
         for x in range(img_w):
-            # Kernel'ın altına denk gelen bölgeyi (pencereyi) kesip alıyoruz
-            # Bu pencere kernel ile aynı boyutta
+            # Kernel'ın altına denk gelen bölgeyi alıyoruz
             pencere = padded_img[y : y + k_h, x : x + k_w]
             
             # Penceredeki her pikseli kernel'daki karşılığıyla çarp ve hepsini topla
@@ -487,7 +486,7 @@ def renk_uzayi_donusumu(img: np.ndarray, params: dict) -> np.ndarray:
         Q =  0.212 * R - 0.523 * G + 0.311 * B
 
         # I ve Q'yu 0-255 aralığına taşı (+128 offset)
-        Y_out = np.clip(Y,       0, 255)
+        Y_out = np.clip(Y, 0, 255)
         I_out = np.clip(I + 128, 0, 255)
         Q_out = np.clip(Q + 128, 0, 255)
 
@@ -763,7 +762,7 @@ registry = {
     "Renk Uzayı Dönüşümleri": renk_uzayi_donusumu,
     "Gri Dönüşüm": gri_donusum,
     "Binary Dönüşüm": binary_donusum,
-    "Konvolüsyon İşlemi (Gauss)": gauss_konvolüsyon,
+    "Konvolüsyon İşlemi (Gauss)": gauss_konvolusyon,
     "Görüntü Döndürme": goruntu_dondurme,
     "Yaklaştırma / Uzaklaştırma": goruntu_olcekleme,
     "Görüntü Kırpma": resim_kirpma,

@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from numpy.lib.stride_tricks import sliding_window_view
 
 def gri_donusum(img: np.ndarray, params: dict) -> np.ndarray:
     """Renk görüntüsünü gri (grayscale) görüntüye dönüştür.
@@ -201,29 +201,33 @@ def gauss_kernel(ksize: int, sigma: float) -> np.ndarray:
     kernel=kernel/kernel.sum() #normalize etmezsek resim kararıyor
     return kernel
 
-
 def konvolusyon(img: np.ndarray, kernel: np.ndarray, dondurme=True) -> np.ndarray:
-    """Konvolüsyon işlemini uygula (padding ile)."""
+    """Konvolüsyon işlemini hazır kütüphane fonksiyonu kullanmadan, 
+    matris kaydırma (shift and add) yöntemiyle çok hızlı şekilde uygula."""
     if dondurme:
-        kernel=np.flip(kernel)
-    ksize = kernel.shape[0] #zaten kernel kare seklinde geliyor
-    padding=ksize//2 #zero padding yapacağız
-
-    padding_img=np.zeros((img.shape[0]+2*padding, img.shape[1]+2*padding))
-    padding_img[padding:padding+img.shape[0], padding:padding+img.shape[1]]=img
-    output = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
-
-    for i in range(img.shape[0]):
-        for j in range(img.shape[1]):
-            toplam=0
-            for k in range(ksize):
-                for l in range(ksize):
-                    toplam += padding_img[i+k, j+l] * kernel[k, l]
-            output[i, j] = toplam
-
-    output = np.clip(output, 0, 255)
-    return output #unutma output float32 dönüyor
-
+        kernel = np.flip(kernel)
+    
+    img_h, img_w = img.shape
+    k_h, k_w = kernel.shape
+    
+    pad_h = k_h // 2
+    pad_w = k_w // 2
+    
+    #Zero Padding Uygula
+    padded_img = np.pad(img, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant')
+    
+    output = np.zeros_like(img, dtype=np.float32)
+    for y in range(img_h):
+        for x in range(img_w):
+            # Kernel'ın altına denk gelen bölgeyi (pencereyi) kesip alıyoruz
+            # Bu pencere kernel ile aynı boyutta
+            pencere = padded_img[y : y + k_h, x : x + k_w]
+            
+            # Penceredeki her pikseli kernel'daki karşılığıyla çarp ve hepsini topla
+            deger = np.sum(pencere * kernel)
+            output[y, x] = deger
+            
+    return output #sonuç float32 dönüyor unutma
 
 def goruntu_dondurme(img: np.ndarray, params: dict) -> np.ndarray:
     """Görüntüyü belirtilen açıda döndür (nearest neighbor interpolasyonu).

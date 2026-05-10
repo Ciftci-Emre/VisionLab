@@ -52,12 +52,12 @@ TOOL_PARAMS: dict[str, list[dict]] = {
     ],
 
     "Blurring": [
-        {"label": "Disk Kernel Yarıçapı", "key": "radius", "type": "slider", "min": 3, "max": 50, "default": 5, "display": "raw"},
+        {"label": "Disk Kernel Yarıçapı", "key": "radius", "type": "slider", "min": 3, "max": 30, "default": 5, "display": "raw"},
     ],
 
     "Kenar Bulma (Sobel)": [
         {"label": "Yöntem", "key": "method", "type": "combo",
-         "options": ["Sobel XY","Sobel X","Sobel Y"],                         "default": "Sobel XY"},
+         "options": ["Tüm Kenarlar (Sobel XY)","Dikey Kenarlar (Sobel X)","Yatay Kenarlar (Sobel Y)"], "default": "Tüm Kenarlar (Sobel XY)"},
     ],
 
     "Filtreler": [
@@ -84,9 +84,10 @@ TOOL_PARAMS: dict[str, list[dict]] = {
          "options": ["Genişleme (Dilate)","Aşınma (Erode)","Açma (Opening)","Kapama (Closing)"],
          "default": "Genişleme (Dilate)"},
         {"label": "Kernel tipi",   "key": "kernel_shape",  "type": "combo",
-         "options": ["Dikdörtgen","Elips"], "default": "Dikdörtgen"},
-        {"label": "Kernel boyutu", "key": "ksize",         "type": "slider", "min": 3, "max": 20, "default": 3, "display": "raw"},
-        {"label": "Elips Yarıçapı","key": "elips_radius",  "type": "slider", "min": 3, "max": 50, "default": 5, "display": "raw"},
+         "options": ["Dikdörtgen","Disk"], "default": "Dikdörtgen"},
+        {"label": "Kernel boyutu", "key": "ksize",         "type": "combo",
+         "options": ["3", "5", "7", "9", "11", "13", "15", "17", "19", "21"], "default": "3"},
+        {"label": "Disk Yarıçapı", "key": "elips_radius",  "type": "slider", "min": 3, "max": 30, "default": 5, "display": "raw"},
     ],
 }
 

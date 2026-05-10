@@ -240,14 +240,16 @@ QPushButton#topbar_btn_accent:hover {
 #statusbar {
     background-color: #11111b;
     border-top: 1px solid #313244;
-    color: #6c7086;
-    font-size: 11px;
+    color: #a6adc8;
+    font-size: 13px;
+    font-weight: bold;
     padding: 4px 14px;
 }
 
 #status_item {
-    color: #6c7086;
-    font-size: 11px;
+    color: #a6adc8;
+    font-size: 13px;
+    font-weight: bold;
     padding: 0 12px;
 }
 

@@ -546,31 +546,32 @@ def sobel(img: np.ndarray, params: dict) -> np.ndarray:
     """Sobel kenar bulma operatörü.
 
     Parametreler:
-        method (str): "Sobel XY" (her iki yön), "Sobel X" (yatay kenarlar),
-                      "Sobel Y" (dikey kenarlar).
+    Parametreler:
+        method (str): "Tüm Kenarlar (Sobel XY)" (her iki yön), "Dikey Kenarlar (Sobel X)",
+                      "Yatay Kenarlar (Sobel Y)".
     """
-    method = params.get("method", "Sobel XY")
+    method = params.get("method", "Tüm Kenarlar (Sobel XY)")
 
     if len(img.shape) == 3:
         gray = gri_donusum(img, params).astype(np.float32)
     else:
         gray = img.astype(np.float32)
 
-    Ky = np.array([[-1, 0, 1],
+    Kx = np.array([[-1, 0, 1],
                    [-2, 0, 2],
                    [-1, 0, 1]], dtype=np.float32)
 
-    Kx = np.array([[-1, -2, -1],
+    Ky = np.array([[-1, -2, -1],
                    [ 0,  0,  0],
                    [ 1,  2,  1]], dtype=np.float32)
 
-    if method == "Sobel X":
+    if method == "Dikey Kenarlar (Sobel X)":
         Gx = konvolusyon(gray, Kx, dondurme=False)
         result = np.abs(Gx)
-    elif method == "Sobel Y":
+    elif method == "Yatay Kenarlar (Sobel Y)":
         Gy = konvolusyon(gray, Ky, dondurme=False)
         result = np.abs(Gy)
-    else:  # Sobel XY
+    else:  # Tüm Kenarlar (Sobel XY)
         Gx = konvolusyon(gray, Kx, dondurme=False)
         Gy = konvolusyon(gray, Ky, dondurme=False)
         result = np.sqrt(Gx ** 2 + Gy ** 2)
@@ -669,9 +670,9 @@ def morfolojik_islemler(img: np.ndarray, params: dict) -> np.ndarray:
     Parametreler:
         operation    (str): "Genişleme (Dilate)", "Aşınma (Erode)",
                             "Açma (Opening)", "Kapama (Closing)".
-        kernel_shape (str): "Dikdörtgen" veya "Elips".
-        ksize        (int): Dikdörtgen kernel boyutu (3-20).
-        elips_radius (int): Elips yarıçapı (Elips seçilince kullanılır).
+        kernel_shape (str): "Dikdörtgen" veya "Disk".
+        ksize        (int): Dikdörtgen kernel boyutu (3-21 arası tek sayılar).
+        elips_radius (int): Disk yarıçapı (Disk seçilince kullanılır).
     """
     operation    = params.get("operation",    "Genişleme (Dilate)")
     kernel_shape = params.get("kernel_shape", "Dikdörtgen")
@@ -684,7 +685,7 @@ def morfolojik_islemler(img: np.ndarray, params: dict) -> np.ndarray:
     #  Kernel oluştur
     if kernel_shape == "Dikdörtgen":
         kernel = np.ones((ksize, ksize), dtype=np.uint8)
-    else:  # Elips — disk_kernel normalizasyonsuz kullan
+    else:  # Disk — disk_kernel normalizasyonsuz kullan
         kernel = disk_kernel(elips_radius, normalizasyon=False).astype(np.uint8)
 
     kernel_h, kernel_w = kernel.shape
